@@ -24,7 +24,6 @@ from typing import Union, Tuple
 from git import Repo
 
 import mlrun
-from mlrun.secrets import SecretsStore
 
 from .helpers import logger
 
@@ -92,7 +91,7 @@ def get_repo_url(repo):
     return url
 
 
-def add_credentials_git_remote_url(url: str, secrets: Union[dict, SecretsStore] = None) -> Tuple[str, bool]:
+def add_credentials_git_remote_url(url: str, secrets=None) -> Tuple[str, bool]:
     # TODO: add a docstring
     def get_secret(key):
         return mlrun.get_secret_or_env(key, secret_provider=secrets)
