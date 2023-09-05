@@ -18,8 +18,8 @@ import tarfile
 import tempfile
 import zipfile
 from os import path, remove
+from typing import Tuple
 from urllib.parse import urlparse
-from typing import Union, Tuple
 
 from git import Repo
 
@@ -92,7 +92,16 @@ def get_repo_url(repo):
 
 
 def add_credentials_git_remote_url(url: str, secrets=None) -> Tuple[str, bool]:
-    # TODO: add a docstring
+    """Enrich a Git remote URL with credential related secrets, if any are available
+    If no secrets are supplied, or if the secrets are insufficient, the original URL is returned
+    Besides the URL, this function also returns a bool indicating if any enrichment was done
+
+    :param url:     git remote URL to be enriched
+    :param secrets: dict or SecretStore with Git credentials
+
+    :returns: tuple with the final URL and a boolean indicating if any enrichment was done
+    """
+
     def get_secret(key):
         return mlrun.get_secret_or_env(key, secret_provider=secrets)
 
@@ -100,10 +109,10 @@ def add_credentials_git_remote_url(url: str, secrets=None) -> Tuple[str, bool]:
 
     username = url_obj.username or get_secret("GIT_USERNAME") or get_secret("git_user")
     password = (
-        url_obj.password
-        or get_secret("GIT_PASSWORD")
-        or get_secret("git_password")
-        or ""
+            url_obj.password
+            or get_secret("GIT_PASSWORD")
+            or get_secret("git_password")
+            or ""
     )
     token = get_secret("GITHUB_TOKEN") or get_secret("GIT_TOKEN")
     if token:
@@ -114,7 +123,14 @@ def add_credentials_git_remote_url(url: str, secrets=None) -> Tuple[str, bool]:
     return url, False
 
 
-def clone_git(url: str, context: str, secrets: Union[dict, SecretsStore] = None, clone: bool = True):
+def clone_git(url: str, context: str, secrets=None, clone: bool = True):
+    """Clone a remote Git repository in the local context
+
+    :param url:     git remote URL
+    :param context: local directory in which the repository must be stored
+    :param secrets: dict or SecretStore with Git credentials
+    :param clone:   delete all files and folders in "context" if there are any
+    """
 
     url_obj = urlparse(url)
     if not context:
@@ -140,7 +156,9 @@ def clone_git(url: str, context: str, secrets: Union[dict, SecretsStore] = None,
         host += f":{url_obj.port}"
 
     clone_path = f"https://{host}{url_obj.path}"
-    final_clone_path, is_path_enriched = add_credentials_git_remote_url(clone_path, secrets=secrets or {})
+    final_clone_path, is_path_enriched = add_credentials_git_remote_url(
+        clone_path, secrets=secrets or {}
+    )
 
     branch = None
     tag = None
@@ -155,9 +173,7 @@ def clone_git(url: str, context: str, secrets: Union[dict, SecretsStore] = None,
             branch = refs
 
     # when using the CLI and clone path was not enriched, username/password input will be requested via shell
-    repo = Repo.clone_from(
-        final_clone_path, context, single_branch=True, b=branch
-    )
+    repo = Repo.clone_from(final_clone_path, context, single_branch=True, b=branch)
 
     if is_path_enriched:
         # override enriched clone path for security reasons
